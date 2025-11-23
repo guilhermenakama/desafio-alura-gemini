@@ -26,8 +26,7 @@ SECRET_KEY = 'django-insecure-fi(=@etxwct0&!j%_e46ym_9+im-!%16^jc$%d1u%o)^e(3ao)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = ['desafio-alura-gemini.onrender.com', 'localhost', '127.0.0.1', '0.0.0.0']
 
 # Application definition
 
