@@ -12,6 +12,11 @@ import HabitGoals from './pages/HabitGoals';
 import AICoach from './pages/AICoach';
 import BehavioralProfile from './pages/BehavioralProfile';
 
+// API URL baseada no ambiente
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : `${window.location.protocol}//${window.location.host}`;
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('access_token'));
   const [username, setUsername] = useState('');
@@ -28,7 +33,7 @@ function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+      const response = await fetch(`${API_URL}/api/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -54,7 +59,7 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/register/', {
+      const response = await fetch(`${API_URL}/api/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
