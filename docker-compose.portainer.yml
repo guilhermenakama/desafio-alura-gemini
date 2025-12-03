@@ -26,11 +26,9 @@ services:
     container_name: senshi-nginx
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./frontend/dist:/usr/share/nginx/html
       - static_volume:/app/staticfiles
-      - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - backend
     networks:
@@ -44,4 +42,5 @@ networks:
   senshi-network:
     driver: bridge
   portainer-network:
-    external: true  # Usa a rede existente do Portainer
+    external: true
+    name: network_swarm_public  # Usa a rede Swarm existente do Portainer
