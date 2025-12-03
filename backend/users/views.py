@@ -1,8 +1,31 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import UserProfile, AIInsight
-from .serializers import UserProfileSerializer, AIInsightSerializer
+from .serializers import UserProfileSerializer, AIInsightSerializer, UserRegistrationSerializer
+
+
+class UserRegistrationView(generics.CreateAPIView):
+    """
+    Endpoint público para registro de novos usuários
+    """
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response({
+            "message": "Usuário criado com sucesso!",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name
+            }
+        }, status=status.HTTP_201_CREATED)
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):

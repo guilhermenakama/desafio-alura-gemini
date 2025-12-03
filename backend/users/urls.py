@@ -11,6 +11,7 @@ router.register(r'profile', views.UserProfileViewSet, basename='profile')
 router.register(r'insights', views.AIInsightViewSet, basename='insights')
 
 urlpatterns = [
+    path('register/', views.UserRegistrationView.as_view(), name='register'),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('', include(router.urls)),
