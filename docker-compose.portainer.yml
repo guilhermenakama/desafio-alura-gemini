@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     container_name: senshi-nginx
     ports:
-      - "80:80"
+      - "8081:80"
     volumes:
       - ./frontend/dist:/usr/share/nginx/html
       - static_volume:/app/staticfiles
