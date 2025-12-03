@@ -32,6 +32,14 @@ services:
       - backend
     networks:
       - senshi-network
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.senshi-habits.rule=Host(`senshin-habits.aytt.com.br`)"
+      - "traefik.http.routers.senshi-habits.entrypoints=websecure"
+      - "traefik.http.routers.senshi-habits.tls=true"
+      - "traefik.http.services.senshi-habits.loadbalancer.server.port=80"
     restart: unless-stopped
 
 volumes:
@@ -40,3 +48,5 @@ volumes:
 networks:
   senshi-network:
     driver: bridge
+  traefik-public:
+    external: true
