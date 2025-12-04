@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL + '/api/tracker';
+const BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : `${window.location.protocol}//${window.location.host}`;
+
+const API_URL = BASE_URL + '/api/tracker';
 
 const useHabitStats = (token) => {
     const [stats, setStats] = useState({
