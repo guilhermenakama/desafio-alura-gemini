@@ -6,6 +6,9 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .services import GeminiVisionService
 from .models import Analysis
 from rest_framework.permissions import IsAuthenticated
+import google.generativeai as genai
+import os
+import tempfile
 
 class HealthCheckView(APIView):
     def get(self, request):
@@ -75,3 +78,73 @@ class AnalyzeImageView(APIView):
             logger = logging.getLogger(__name__)
             logger.error(f"Erro ao processar imagem", exc_info=True)
             return Response({"error": "Erro interno ao processar imagem"}, status=500)
+
+
+class TranscribeAudioView(APIView):
+    """
+    Endpoint para transcrever áudio usando Google Gemini
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        # Validar se veio áudio
+        if 'audio' not in request.FILES:
+            return Response({"error": "Nenhum áudio enviado"}, status=400)
+
+        audio_file = request.FILES['audio']
+
+        # Validação de tamanho
+        MAX_SIZE = 10 * 1024 * 1024  # 10MB
+        if audio_file.size > MAX_SIZE:
+            return Response({
+                "error": "Áudio muito grande. Máximo: 10MB"
+            }, status=400)
+
+        try:
+            # Configurar Gemini
+            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+
+            # Salvar temporariamente o áudio
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as temp_audio:
+                for chunk in audio_file.chunks():
+                    temp_audio.write(chunk)
+                temp_path = temp_audio.name
+
+            try:
+                # Upload do arquivo para o Gemini
+                uploaded_file = genai.upload_file(temp_path)
+
+                # Usar o modelo Gemini para transcrição
+                model = genai.GenerativeModel('gemini-1.5-flash')
+
+                # Prompt para transcrição
+                prompt = """
+                Por favor, transcreva o áudio em português brasileiro.
+                Retorne apenas a transcrição, sem comentários ou formatação extra.
+                """
+
+                response = model.generate_content([uploaded_file, prompt])
+                transcription = response.text.strip()
+
+                # Limpar arquivo temporário
+                os.unlink(temp_path)
+
+                return Response({
+                    "transcription": transcription,
+                    "success": True
+                })
+
+            except Exception as e:
+                # Limpar arquivo temporário em caso de erro
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                raise e
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erro ao transcrever áudio: {str(e)}", exc_info=True)
+            return Response({
+                "error": "Erro ao transcrever áudio. Tente novamente."
+            }, status=500)

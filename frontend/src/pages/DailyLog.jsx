@@ -16,7 +16,12 @@ import {
   Frown,
   Heart,
   Sparkles,
-  Search
+  Search,
+  Brain,
+  Zap,
+  HeartPulse,
+  Mic,
+  StopCircle
 } from 'lucide-react';
 import useHabits from '../hooks/useHabits';
 
@@ -53,6 +58,13 @@ const DailyLog = ({ token }) => {
   // Journal
   const [journal, setJournal] = useState({ content: '', mood: null });
 
+  // Auto-avaliação (Mental, Física, Emocional)
+  const [wellbeingText, setWellbeingText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
   useEffect(() => {
     fetchTemplates();
     fetchExercises();
@@ -86,6 +98,66 @@ const DailyLog = ({ token }) => {
   const loadTodayData = async () => {
     // Aqui você pode carregar dados já salvos do dia, se necessário
     // Por enquanto, vamos começar limpo
+  };
+
+  // Funções de gravação de áudio
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await transcribeAudio(audioBlob);
+
+        // Parar todas as tracks do stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Erro ao acessar microfone:', error);
+      alert('Erro ao acessar o microfone. Verifique as permissões do navegador.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob) => {
+    setIsTranscribing(true);
+
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+
+    try {
+      const res = await fetch(`${API_URL}/api/vision/transcribe/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (data.transcription) {
+        setWellbeingText(prev => prev ? `${prev}\n\n${data.transcription}` : data.transcription);
+      }
+    } catch (error) {
+      console.error('Erro ao transcrever áudio:', error);
+      alert('Erro ao transcrever o áudio. Tente novamente.');
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   const handleNutritionFileChange = (e) => {
@@ -253,8 +325,12 @@ const DailyLog = ({ token }) => {
         });
       }
 
-      // 3. Salvar journal
-      if (journal.content.trim() || journal.mood) {
+      // 3. Salvar journal (incluindo auto-avaliação)
+      const fullJournalContent = wellbeingText.trim()
+        ? `📝 Auto-avaliação:\n${wellbeingText}\n\n---\n\n${journal.content}`
+        : journal.content;
+
+      if (fullJournalContent.trim() || journal.mood) {
         await fetch(`${API_URL}/api/tracker/journal/`, {
           method: 'POST',
           headers: {
@@ -262,7 +338,7 @@ const DailyLog = ({ token }) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            content: journal.content,
+            content: fullJournalContent,
             mood_rating: journal.mood || 3,
             date: date
           })
@@ -645,13 +721,77 @@ const DailyLog = ({ token }) => {
               </div>
             </div>
 
+            {/* Auto-avaliação: Mental, Física, Emocional */}
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Brain className="w-5 h-5 text-indigo-600" />
+                <p className="text-sm font-semibold text-gray-700">
+                  Como você está mentalmente, fisicamente e emocionalmente?
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Campo de texto */}
+                <textarea
+                  value={wellbeingText}
+                  onChange={(e) => setWellbeingText(e.target.value)}
+                  placeholder="Descreva como você está se sentindo mentalmente, fisicamente e emocionalmente...
+Você pode escrever ou gravar um áudio! 🎤"
+                  className="w-full h-32 px-4 py-3 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 focus:outline-none resize-none bg-gradient-to-br from-indigo-50 to-purple-50"
+                />
+
+                {/* Botão de gravar áudio */}
+                <div className="flex items-center gap-3">
+                  {!isRecording ? (
+                    <button
+                      onClick={startRecording}
+                      disabled={isTranscribing}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      <Mic className="w-5 h-5" />
+                      Gravar Áudio
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all animate-pulse"
+                    >
+                      <StopCircle className="w-5 h-5" />
+                      Parar Gravação
+                    </button>
+                  )}
+
+                  {isTranscribing && (
+                    <div className="flex items-center gap-2 text-indigo-600">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm font-semibold">Transcrevendo...</span>
+                    </div>
+                  )}
+
+                  {isRecording && (
+                    <div className="flex items-center gap-2 text-red-600 animate-pulse">
+                      <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                      <span className="text-sm font-semibold">Gravando...</span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-500 italic">
+                  💡 Dica: Fale naturalmente sobre como você está se sentindo. A IA vai transcrever e adicionar ao texto acima.
+                </p>
+              </div>
+            </div>
+
             {/* Journal Text */}
-            <textarea
-              value={journal.content}
-              onChange={(e) => setJournal({ ...journal, content: e.target.value })}
-              placeholder="Como foi seu dia? O que você aprendeu? Como se sentiu? ✨"
-              className="w-full h-32 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
-            />
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Diário do Dia</p>
+              <textarea
+                value={journal.content}
+                onChange={(e) => setJournal({ ...journal, content: e.target.value })}
+                placeholder="Como foi seu dia? O que você aprendeu? Reflexões gerais... ✨"
+                className="w-full h-32 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+              />
+            </div>
           </div>
         </div>
 
