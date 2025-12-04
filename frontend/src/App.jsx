@@ -24,7 +24,7 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [firstName, setFirstName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
 
@@ -58,16 +58,20 @@ function App() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Gerar username a partir do nome completo (remover espaços e colocar em minúsculo)
+    const generatedUsername = fullName.toLowerCase().replace(/\s+/g, '');
+
     try {
       const response = await fetch(`${API_URL}/api/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
+          username: generatedUsername,
           email,
           password,
           password_confirm: passwordConfirm,
-          first_name: firstName
+          first_name: fullName
         })
       });
       const data = await response.json();
@@ -79,7 +83,7 @@ function App() {
         setPassword('');
         setPasswordConfirm('');
         setEmail('');
-        setFirstName('');
+        setFullName('');
       } else {
         const errorMsg = Object.values(data).flat().join(' ');
         setError(errorMsg || "Erro ao cadastrar.");
@@ -113,9 +117,8 @@ function App() {
             </form>
           ) : (
             <form onSubmit={handleRegister}>
-              <input type="text" placeholder="Nome" value={firstName} onChange={e => setFirstName(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required />
-              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required />
-              <input type="text" placeholder="Usuário" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required />
+              <input type="text" placeholder="Nome Completo" value={fullName} onChange={e => setFullName(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required />
+              <input type="email" placeholder="email@exemplo.com" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required />
               <input type="password" placeholder="Senha (mínimo 8 caracteres)" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }} required minLength={8} />
               <input type="password" placeholder="Confirmar Senha" value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ddd' }} required />
               {error && <p style={{ color: 'red', marginBottom: '10px', fontSize: '14px' }}>{error}</p>}
