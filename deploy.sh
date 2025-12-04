@@ -1,44 +1,35 @@
 #!/bin/bash
 
-# Script de deploy para Docker Swarm
-set -e
-
 echo "🚀 Iniciando deploy do Senshi Habits..."
 
 # Cores para output
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# 1. Build das imagens
-echo -e "${BLUE}📦 Fazendo build das imagens...${NC}"
-docker build -t senshi-habits-backend:latest -f backend/Dockerfile.prod backend/
-docker build -t senshi-habits-nginx:latest -f nginx/Dockerfile .
+echo -e "${YELLOW}1. Fazendo pull das mudanças...${NC}"
+git pull
 
-# 2. Parar containers standalone se existirem
-echo -e "${BLUE}🛑 Parando containers standalone...${NC}"
-docker stop senshi-backend senshi-nginx 2>/dev/null || true
-docker rm senshi-backend senshi-nginx 2>/dev/null || true
+echo -e "${YELLOW}2. Executando migrations no backend...${NC}"
+docker exec -it $(docker ps -q -f name=senshi-habits_backend) python manage.py migrate
 
-# 3. Carregar variáveis de ambiente
-echo -e "${BLUE}🔐 Carregando variáveis de ambiente...${NC}"
-export $(grep -v '^#' backend/.env | xargs)
+echo -e "${YELLOW}3. Rebuilding backend (sem cache)...${NC}"
+docker build --no-cache -t senshi-habits-backend:latest -f backend/Dockerfile.prod backend/
 
-# 4. Deploy da stack
-echo -e "${BLUE}🚢 Fazendo deploy da stack...${NC}"
-docker stack deploy -c docker-compose.stack.yml senshi-habits
+echo -e "${YELLOW}4. Atualizando serviço backend...${NC}"
+docker service update --force --image senshi-habits-backend:latest senshi-habits_backend
 
-# 5. Aguardar serviços ficarem prontos
-echo -e "${BLUE}⏳ Aguardando serviços ficarem prontos...${NC}"
-sleep 10
+echo -e "${YELLOW}5. Rebuilding frontend (nginx)...${NC}"
+docker build -t senshi-habits-frontend:latest -f nginx/Dockerfile .
 
-# 6. Verificar status
+echo -e "${YELLOW}6. Atualizando serviço frontend...${NC}"
+docker service update --force --image senshi-habits-frontend:latest senshi-habits_frontend
+
+echo -e "${YELLOW}7. Verificando status dos serviços...${NC}"
+docker service ps senshi-habits_backend --no-trunc
+docker service ps senshi-habits_frontend --no-trunc
+
 echo -e "${GREEN}✅ Deploy concluído!${NC}"
 echo ""
-echo "Status dos serviços:"
-docker stack services senshi-habits
-
-echo ""
-echo "Para verificar logs:"
-echo "  docker service logs senshi-habits_backend -f"
-echo "  docker service logs senshi-habits_nginx -f"
+echo "Aguarde alguns segundos para os containers iniciarem completamente."
+echo "Depois limpe o cache do Cloudflare se necessário."
