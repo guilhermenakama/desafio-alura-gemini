@@ -126,8 +126,9 @@ class TranscribeAudioView(APIView):
                 if uploaded_file.state.name == "FAILED":
                     raise Exception("Falha ao processar o arquivo de áudio")
 
-                # Usar o modelo Gemini Pro para transcrição de áudio
-                model = genai.GenerativeModel('gemini-1.5-pro-latest')
+                # Usar o modelo Gemini que suporta áudio
+                # gemini-1.5-flash ou gemini-1.5-pro (sem o -latest)
+                model = genai.GenerativeModel('gemini-1.5-flash')
 
                 # Prompt para transcrição
                 prompt = """
