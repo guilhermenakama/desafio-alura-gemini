@@ -438,34 +438,45 @@ const DailyLog = ({ token }) => {
             <h3 className="text-lg font-bold text-gray-800">{title}</h3>
           </div>
 
-          {templatesFiltered.length > 0 && (
-            <button
-              onClick={() => setShowTemplateSelect({
-                ...showTemplateSelect,
-                [workoutType]: !showTemplateSelect[workoutType]
-              })}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-semibold"
-            >
-              <ChevronDown className="w-3 h-3" />
-              Templates
-            </button>
-          )}
+          {/* Botão de Templates - SEMPRE visível */}
+          <button
+            onClick={() => setShowTemplateSelect({
+              ...showTemplateSelect,
+              [workoutType]: !showTemplateSelect[workoutType]
+            })}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-semibold"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${showTemplateSelect[workoutType] ? 'rotate-180' : ''}`} />
+            Templates
+            {templatesFiltered.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-xs">
+                {templatesFiltered.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Templates dropdown */}
-        {showTemplateSelect[workoutType] && templatesFiltered.length > 0 && (
+        {showTemplateSelect[workoutType] && (
           <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="grid grid-cols-2 gap-2">
-              {templatesFiltered.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => handleLoadTemplate(t.id, workoutType)}
-                  className="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium"
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
+            {templatesFiltered.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {templatesFiltered.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleLoadTemplate(t.id, workoutType)}
+                    className="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium"
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3 text-gray-500 text-sm">
+                <p>Nenhum template de {title.toLowerCase()} cadastrado</p>
+                <p className="text-xs mt-1">Vá em Workout Log para criar templates</p>
+              </div>
+            )}
           </div>
         )}
 
