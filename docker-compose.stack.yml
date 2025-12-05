@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     image: senshi-habits-backend:latest
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --max-requests 1000 --max-requests-jitter 100 --timeout 120
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False

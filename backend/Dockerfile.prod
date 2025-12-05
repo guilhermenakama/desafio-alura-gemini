@@ -21,6 +21,10 @@ RUN pip install --upgrade pip && \
 # Copiar projeto
 COPY . .
 
+# Limpar qualquer cache Python existente
+RUN find . -type d -name __pycache__ -exec rm -rf {} + || true
+RUN find . -type f -name "*.pyc" -delete || true
+
 # Coletar arquivos estáticos
 RUN python manage.py collectstatic --noinput
 
