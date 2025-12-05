@@ -399,18 +399,22 @@ class BodyMetricsView(APIView):
         date = request.data.get('date')
         notes = request.data.get('notes', '')
 
-        # Converter campos opcionais
+        # Converter campos opcionais (converter strings vazias para None)
         if muscle_mass_kg:
             try:
                 muscle_mass_kg = float(muscle_mass_kg)
             except ValueError:
                 return Response({'error': 'Massa magra inválida'}, status=400)
+        else:
+            muscle_mass_kg = None
 
         if fat_mass_percentage:
             try:
                 fat_mass_percentage = float(fat_mass_percentage)
             except ValueError:
                 return Response({'error': 'Percentual de gordura inválido'}, status=400)
+        else:
+            fat_mass_percentage = None
 
         # Usar data de hoje se não fornecida
         if not date:

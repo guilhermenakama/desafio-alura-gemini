@@ -427,7 +427,7 @@ const DailyLog = ({ token }) => {
     const exercisesOfType = workoutData
       .map((ex, globalIdx) => ({ ...ex, globalIdx }))
       .filter(ex => ex.workout_type === workoutType);
-    const templatesFiltered = templates.filter(t => t.workout_type === workoutType);
+    const templatesFiltered = templates; // Todos os templates disponíveis em todas as seções
 
     return (
       <div className="mb-6">
