@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import useHabits from '../hooks/useHabits';
 import { formatDateBR, formatRelativeDate } from '../utils/dateFormat';
+import DateInputBR from '../components/DateInputBR';
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://127.0.0.1:8000'
@@ -704,11 +705,9 @@ const DailyLog = ({ token }) => {
             </div>
           </div>
 
-          <input
-            type="date"
+          <DateInputBR
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none font-semibold"
           />
         </div>
       </div>
