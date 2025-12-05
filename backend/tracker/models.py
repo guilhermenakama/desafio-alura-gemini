@@ -164,10 +164,22 @@ class JournalEntry(models.Model):
     ])
 
 class WorkoutTemplate(models.Model):
+    WORKOUT_TYPE_CHOICES = [
+        ('warmup', 'Aquecimento'),
+        ('strength', 'Força'),
+        ('cardio', 'Cardio/HIIT'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workout_templates')
     name = models.CharField(max_length=100, help_text="Ex: Treino A - Peito")
+    workout_type = models.CharField(
+        max_length=20,
+        choices=WORKOUT_TYPE_CHOICES,
+        default='strength',
+        help_text="Tipo do treino: Aquecimento, Força ou Cardio/HIIT"
+    )
     # Guardamos a estrutura exata da tabela (Exercício, Sets, Reps, Carga, Tempo)
-    exercises_data = models.TextField(default="[]") 
+    exercises_data = models.TextField(default="[]")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -21,7 +21,9 @@ import {
   Zap,
   HeartPulse,
   Mic,
-  StopCircle
+  StopCircle,
+  Flame,
+  Activity
 } from 'lucide-react';
 import useHabits from '../hooks/useHabits';
 
@@ -44,11 +46,17 @@ const DailyLog = ({ token }) => {
   const [nutritionResult, setNutritionResult] = useState("");
   const [analyzingNutrition, setAnalyzingNutrition] = useState(false);
 
-  // Treino
-  const [workoutData, setWorkoutData] = useState([]);
+  // Treino - Modularizado por tipo
+  const [warmupData, setWarmupData] = useState([]);
+  const [strengthData, setStrengthData] = useState([]);
+  const [cardioData, setCardioData] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [exercisesList, setExercisesList] = useState([]);
-  const [showTemplateSelect, setShowTemplateSelect] = useState(false);
+  const [showTemplateSelect, setShowTemplateSelect] = useState({
+    warmup: false,
+    strength: false,
+    cardio: false
+  });
 
   // Autocomplete de exercícios
   const [searchTerms, setSearchTerms] = useState({});
@@ -250,8 +258,25 @@ const DailyLog = ({ token }) => {
     }
   };
 
-  const handleLoadTemplate = (templateId) => {
-    console.log('Loading template:', templateId, templates);
+  const getWorkoutDataByType = (type) => {
+    switch(type) {
+      case 'warmup': return warmupData;
+      case 'strength': return strengthData;
+      case 'cardio': return cardioData;
+      default: return [];
+    }
+  };
+
+  const setWorkoutDataByType = (type, data) => {
+    switch(type) {
+      case 'warmup': setWarmupData(data); break;
+      case 'strength': setStrengthData(data); break;
+      case 'cardio': setCardioData(data); break;
+    }
+  };
+
+  const handleLoadTemplate = (templateId, workoutType) => {
+    console.log('Loading template:', templateId, workoutType, templates);
     const template = templates.find(t => t.id === parseInt(templateId));
     if (template) {
       console.log('Template found:', template);
@@ -263,8 +288,8 @@ const DailyLog = ({ token }) => {
           ...ex,
           completed: false
         }));
-        setWorkoutData(exercisesWithCompleted);
-        setShowTemplateSelect(false);
+        setWorkoutDataByType(workoutType, exercisesWithCompleted);
+        setShowTemplateSelect({ ...showTemplateSelect, [workoutType]: false });
         console.log('Template loaded successfully:', exercisesWithCompleted);
       } catch (error) {
         console.error('Error parsing template exercises:', error);
@@ -275,8 +300,9 @@ const DailyLog = ({ token }) => {
     }
   };
 
-  const addExercise = () => {
-    setWorkoutData([...workoutData, {
+  const addExercise = (workoutType) => {
+    const currentData = getWorkoutDataByType(workoutType);
+    setWorkoutDataByType(workoutType, [...currentData, {
       exercise_name: '',
       sets: '',
       reps: '',
@@ -287,25 +313,28 @@ const DailyLog = ({ token }) => {
     }]);
   };
 
-  const updateExercise = (index, field, value) => {
-    const newData = [...workoutData];
+  const updateExercise = (workoutType, index, field, value) => {
+    const currentData = getWorkoutDataByType(workoutType);
+    const newData = [...currentData];
     newData[index] = { ...newData[index], [field]: value };
-    setWorkoutData(newData);
+    setWorkoutDataByType(workoutType, newData);
   };
 
-  const removeExercise = (index) => {
-    setWorkoutData(workoutData.filter((_, i) => i !== index));
+  const removeExercise = (workoutType, index) => {
+    const currentData = getWorkoutDataByType(workoutType);
+    setWorkoutDataByType(workoutType, currentData.filter((_, i) => i !== index));
   };
 
-  const toggleExerciseComplete = (index) => {
-    const newData = [...workoutData];
+  const toggleExerciseComplete = (workoutType, index) => {
+    const currentData = getWorkoutDataByType(workoutType);
+    const newData = [...currentData];
     newData[index].completed = !newData[index].completed;
-    setWorkoutData(newData);
+    setWorkoutDataByType(workoutType, newData);
   };
 
   // Autocomplete functions
-  const getFilteredExercises = (idx) => {
-    const searchTerm = searchTerms[idx] || '';
+  const getFilteredExercises = (key) => {
+    const searchTerm = searchTerms[key] || '';
     if (!searchTerm) return exercisesList;
 
     return exercisesList.filter(ex =>
@@ -314,15 +343,16 @@ const DailyLog = ({ token }) => {
     );
   };
 
-  const handleExerciseSearchChange = (idx, value) => {
-    setSearchTerms({ ...searchTerms, [idx]: value });
-    setShowDropdown({ ...showDropdown, [idx]: true });
+  const handleExerciseSearchChange = (key, value) => {
+    setSearchTerms({ ...searchTerms, [key]: value });
+    setShowDropdown({ ...showDropdown, [key]: true });
   };
 
-  const handleExerciseSelect = (idx, exerciseName) => {
-    updateExercise(idx, 'exercise_name', exerciseName);
-    setSearchTerms({ ...searchTerms, [idx]: '' });
-    setShowDropdown({ ...showDropdown, [idx]: false });
+  const handleExerciseSelect = (workoutType, idx, exerciseName) => {
+    updateExercise(workoutType, idx, 'exercise_name', exerciseName);
+    const key = `${workoutType}_${idx}`;
+    setSearchTerms({ ...searchTerms, [key]: '' });
+    setShowDropdown({ ...showDropdown, [key]: false });
   };
 
   // Click outside to close dropdown
@@ -363,23 +393,29 @@ const DailyLog = ({ token }) => {
         ));
       }
 
-      // 2. Salvar treino
-      const completedExercises = workoutData.filter(ex => ex.exercise_name && ex.exercise_name.trim());
-      if (completedExercises.length > 0) {
-        await fetch(`${API_URL}/api/tracker/workouts/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            title: `Treino - ${new Date(date).toLocaleDateString('pt-BR')}`,
-            date_time: new Date(date).toISOString(),
-            exercises_data: JSON.stringify(completedExercises),
-            feeling: journal.mood || 3
-          })
-        });
-      }
+      // 2. Salvar treinos (Aquecimento, Força, Cardio)
+      const saveWorkout = async (data, type, title) => {
+        const completedExercises = data.filter(ex => ex.exercise_name && ex.exercise_name.trim());
+        if (completedExercises.length > 0) {
+          await fetch(`${API_URL}/api/tracker/workouts/`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: `${title} - ${new Date(date).toLocaleDateString('pt-BR')}`,
+              date_time: new Date(date).toISOString(),
+              exercises_data: JSON.stringify(completedExercises),
+              feeling: journal.mood || 3
+            })
+          });
+        }
+      };
+
+      await saveWorkout(warmupData, 'warmup', 'Aquecimento');
+      await saveWorkout(strengthData, 'strength', 'Treino de Força');
+      await saveWorkout(cardioData, 'cardio', 'Cardio/HIIT');
 
       // 3. Salvar journal (incluindo auto-avaliação)
       const fullJournalContent = wellbeingText.trim()
@@ -419,6 +455,188 @@ const DailyLog = ({ token }) => {
     { value: 4, icon: Smile, label: 'Bom', color: 'from-green-500 to-green-600' },
     { value: 5, icon: Heart, label: 'Ótimo', color: 'from-purple-500 to-pink-600' },
   ];
+
+  // Função para renderizar cada seção de treino (Aquecimento, Força, Cardio)
+  const renderWorkoutSection = (workoutType, Icon, title, iconColor, borderColor) => {
+    const workoutData = getWorkoutDataByType(workoutType);
+    const templatesFiltered = templates.filter(t => t.workout_type === workoutType);
+
+    return (
+      <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <Icon className={`w-6 h-6 ${iconColor}`} />
+            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+          </div>
+
+          {templatesFiltered.length > 0 && (
+            <button
+              onClick={() => setShowTemplateSelect({
+                ...showTemplateSelect,
+                [workoutType]: !showTemplateSelect[workoutType]
+              })}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-semibold"
+            >
+              <ChevronDown className="w-4 h-4" />
+              Templates
+            </button>
+          )}
+        </div>
+
+        {showTemplateSelect[workoutType] && templatesFiltered.length > 0 && (
+          <div className={`mb-4 p-4 bg-${borderColor}-50 rounded-xl border-2 border-${borderColor}-200`}>
+            <p className="text-sm font-semibold text-gray-700 mb-2">Selecione um template:</p>
+            <div className="grid grid-cols-2 gap-2">
+              {templatesFiltered.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => handleLoadTemplate(t.id, workoutType)}
+                  className={`px-4 py-2 bg-white border-2 border-gray-200 rounded-lg hover:border-${borderColor}-400 hover:bg-${borderColor}-50 transition-colors text-sm font-medium`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {workoutData.map((exercise, idx) => {
+            const key = `${workoutType}_${idx}`;
+            return (
+              <div
+                key={idx}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  exercise.completed
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => toggleExerciseComplete(workoutType, idx)}
+                    className={`mt-1 w-6 h-6 rounded-full border-2 flex-shrink-0 ${
+                      exercise.completed
+                        ? 'bg-green-500 border-green-500'
+                        : 'border-gray-300 hover:border-green-400'
+                    }`}
+                  >
+                    {exercise.completed && <CheckCircle2 className="w-5 h-5 text-white" />}
+                  </button>
+
+                  <div className="flex-1 space-y-2">
+                    {/* Autocomplete de Exercício */}
+                    <div className="relative" ref={el => searchRefs.current[key] = el}>
+                      {exercise.exercise_name ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={exercise.exercise_name}
+                            readOnly
+                            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg bg-white font-semibold"
+                          />
+                          <button
+                            onClick={() => updateExercise(workoutType, idx, 'exercise_name', '')}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Trocar exercício"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Buscar exercício..."
+                              value={searchTerms[key] || ''}
+                              onChange={(e) => handleExerciseSearchChange(key, e.target.value)}
+                              onFocus={() => setShowDropdown({ ...showDropdown, [key]: true })}
+                              className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none font-semibold"
+                            />
+                          </div>
+
+                          {showDropdown[key] && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                              {getFilteredExercises(key).length === 0 ? (
+                                <div className="p-3 text-center text-gray-500 text-sm">
+                                  Nenhum exercício encontrado
+                                </div>
+                              ) : (
+                                getFilteredExercises(key).map(ex => (
+                                  <button
+                                    key={ex.id}
+                                    onClick={() => handleExerciseSelect(workoutType, idx, ex.name)}
+                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="font-semibold text-gray-900 text-sm">{ex.name}</div>
+                                    {ex.muscle_group && (
+                                      <div className="text-xs text-gray-500">🎯 {ex.muscle_group}</div>
+                                    )}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      <input
+                        type="number"
+                        value={exercise.sets}
+                        onChange={(e) => updateExercise(workoutType, idx, 'sets', e.target.value)}
+                        placeholder="Sets"
+                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
+                      />
+                      <input
+                        type="number"
+                        value={exercise.reps}
+                        onChange={(e) => updateExercise(workoutType, idx, 'reps', e.target.value)}
+                        placeholder="Reps"
+                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
+                      />
+                      <input
+                        type="number"
+                        value={exercise.weight}
+                        onChange={(e) => updateExercise(workoutType, idx, 'weight', e.target.value)}
+                        placeholder="Kg"
+                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={exercise.time}
+                        onChange={(e) => updateExercise(workoutType, idx, 'time', e.target.value)}
+                        placeholder="Tempo"
+                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => removeExercise(workoutType, idx)}
+                    className="mt-1 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          <button
+            onClick={() => addExercise(workoutType)}
+            className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-semibold text-gray-600"
+          >
+            <Plus className="w-5 h-5" />
+            Adicionar Exercício
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4 md:p-6">
@@ -575,172 +793,15 @@ const DailyLog = ({ token }) => {
           </div>
         </div>
 
-        {/* Treino */}
-        <div className="bg-white rounded-2xl shadow-xl p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <Dumbbell className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Treino</h2>
-            </div>
+        {/* Treino Modularizado em 3 seções */}
+        {/* 1. Aquecimento */}
+        {renderWorkoutSection('warmup', Flame, 'Aquecimento', 'text-orange-600', 'orange')}
 
-            <button
-              onClick={() => setShowTemplateSelect(!showTemplateSelect)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-semibold"
-            >
-              <ChevronDown className="w-4 h-4" />
-              Templates
-            </button>
-          </div>
+        {/* 2. Treino de Força */}
+        {renderWorkoutSection('strength', Dumbbell, 'Treino de Força', 'text-blue-600', 'blue')}
 
-          {showTemplateSelect && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Selecione um template:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {templates.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => handleLoadTemplate(t.id)}
-                    className="px-4 py-2 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium"
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {workoutData.map((exercise, idx) => (
-              <div
-                key={idx}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  exercise.completed
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => toggleExerciseComplete(idx)}
-                    className={`mt-1 w-6 h-6 rounded-full border-2 flex-shrink-0 ${
-                      exercise.completed
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-gray-300 hover:border-green-400'
-                    }`}
-                  >
-                    {exercise.completed && <CheckCircle2 className="w-5 h-5 text-white" />}
-                  </button>
-
-                  <div className="flex-1 space-y-2">
-                    {/* Autocomplete de Exercício */}
-                    <div className="relative" ref={el => searchRefs.current[idx] = el}>
-                      {exercise.exercise_name ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={exercise.exercise_name}
-                            readOnly
-                            className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg bg-white font-semibold"
-                          />
-                          <button
-                            onClick={() => updateExercise(idx, 'exercise_name', '')}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Trocar exercício"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                            <input
-                              type="text"
-                              placeholder="Buscar exercício..."
-                              value={searchTerms[idx] || ''}
-                              onChange={(e) => handleExerciseSearchChange(idx, e.target.value)}
-                              onFocus={() => setShowDropdown({ ...showDropdown, [idx]: true })}
-                              className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none font-semibold"
-                            />
-                          </div>
-
-                          {showDropdown[idx] && (
-                            <div className="absolute z-20 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                              {getFilteredExercises(idx).length === 0 ? (
-                                <div className="p-3 text-center text-gray-500 text-sm">
-                                  Nenhum exercício encontrado
-                                </div>
-                              ) : (
-                                getFilteredExercises(idx).map(ex => (
-                                  <button
-                                    key={ex.id}
-                                    onClick={() => handleExerciseSelect(idx, ex.name)}
-                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                                  >
-                                    <div className="font-semibold text-gray-900 text-sm">{ex.name}</div>
-                                    {ex.muscle_group && (
-                                      <div className="text-xs text-gray-500">🎯 {ex.muscle_group}</div>
-                                    )}
-                                  </button>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-2">
-                      <input
-                        type="number"
-                        value={exercise.sets}
-                        onChange={(e) => updateExercise(idx, 'sets', e.target.value)}
-                        placeholder="Sets"
-                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
-                      />
-                      <input
-                        type="number"
-                        value={exercise.reps}
-                        onChange={(e) => updateExercise(idx, 'reps', e.target.value)}
-                        placeholder="Reps"
-                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
-                      />
-                      <input
-                        type="number"
-                        value={exercise.weight}
-                        onChange={(e) => updateExercise(idx, 'weight', e.target.value)}
-                        placeholder="Kg"
-                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
-                      />
-                      <input
-                        type="text"
-                        value={exercise.time}
-                        onChange={(e) => updateExercise(idx, 'time', e.target.value)}
-                        placeholder="Tempo"
-                        className="px-2 py-1 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-center text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => removeExercise(idx)}
-                    className="mt-1 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <button
-              onClick={addExercise}
-              className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-semibold text-gray-600"
-            >
-              <Plus className="w-5 h-5" />
-              Adicionar Exercício
-            </button>
-          </div>
-        </div>
+        {/* 3. Cardio/HIIT */}
+        {renderWorkoutSection('cardio', Zap, 'Cardio / HIIT', 'text-purple-600', 'purple')}
 
         {/* Journal & Mood */}
         <div className="bg-white rounded-2xl shadow-xl p-6">
