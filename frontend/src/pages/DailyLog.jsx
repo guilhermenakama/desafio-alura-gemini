@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle2,
@@ -23,18 +24,25 @@ import {
   Mic,
   StopCircle,
   Flame,
-  Activity
+  Activity,
+  Clock
 } from 'lucide-react';
 import useHabits from '../hooks/useHabits';
+import { formatDateBR, formatRelativeDate } from '../utils/dateFormat';
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://127.0.0.1:8000'
   : `${window.location.protocol}//${window.location.host}`;
 
 const DailyLog = ({ token }) => {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    // Verificar se há uma data na URL
+    const urlDate = searchParams.get('date');
+    return urlDate || new Date().toISOString().slice(0, 10);
+  });
 
   // Hábitos
   const { habits, isLoading: habitsLoading } = useHabits(token);
@@ -108,8 +116,69 @@ const DailyLog = ({ token }) => {
   };
 
   const loadTodayData = async () => {
-    // Aqui você pode carregar dados já salvos do dia, se necessário
-    // Por enquanto, vamos começar limpo
+    try {
+      // 1. Carregar hábitos completados do dia
+      const habitLogsRes = await fetch(`${API_URL}/api/tracker/habit-logs/?date=${date}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (habitLogsRes.ok) {
+        const habitLogsData = await habitLogsRes.json();
+        const completedIds = habitLogsData
+          .filter(log => log.completed)
+          .map(log => log.habit);
+        setCheckedHabits(new Set(completedIds));
+      }
+
+      // 2. Carregar treino do dia
+      const workoutsRes = await fetch(`${API_URL}/api/tracker/workouts/?date=${date}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (workoutsRes.ok) {
+        const workoutsData = await workoutsRes.json();
+        if (workoutsData.length > 0) {
+          const workout = workoutsData[0];
+          try {
+            const exercises = JSON.parse(workout.exercises_data);
+            setWorkoutData(exercises);
+          } catch (e) {
+            console.error('Erro ao parsear exercícios:', e);
+          }
+        } else {
+          setWorkoutData([]);
+        }
+      }
+
+      // 3. Carregar journal do dia
+      const journalRes = await fetch(`${API_URL}/api/tracker/journal/?date=${date}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (journalRes.ok) {
+        const journalData = await journalRes.json();
+        if (journalData.length > 0) {
+          const entry = journalData[0];
+
+          // Separar auto-avaliação do conteúdo do journal
+          let content = entry.content || '';
+          let wellbeing = '';
+
+          if (content.includes('📝 Auto-avaliação:')) {
+            const parts = content.split('---');
+            if (parts.length > 1) {
+              wellbeing = parts[0].replace('📝 Auto-avaliação:', '').trim();
+              content = parts[1].trim();
+            }
+          }
+
+          setJournal({ content, mood: entry.mood_rating });
+          setWellbeingText(wellbeing);
+        } else {
+          setJournal({ content: '', mood: null });
+          setWellbeingText('');
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do dia:', error);
+    }
   };
 
   // Funções de gravação de áudio - Auto-avaliação
@@ -628,7 +697,10 @@ const DailyLog = ({ token }) => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Daily Journal</h1>
-              <p className="text-gray-600 text-sm">Registre seu dia de forma rápida</p>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-gray-500" />
+                <p className="text-gray-600 text-sm font-medium">{formatRelativeDate(date)} - {formatDateBR(date)}</p>
+              </div>
             </div>
           </div>
 
