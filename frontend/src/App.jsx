@@ -34,20 +34,31 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     try {
+      console.log('Tentando login...', { username, API_URL });
       const response = await fetch(`${API_URL}/api/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       const data = await response.json();
+      console.log('Resposta do servidor:', { status: response.status, ok: response.ok, data });
+
       if (response.ok) {
+        console.log('Salvando token...', data.access);
         localStorage.setItem('access_token', data.access);
         setToken(data.access);
+        console.log('Token salvo com sucesso!');
       } else {
-        setError("Login falhou.");
+        const errorMsg = data.detail || data.error || "Credenciais inválidas";
+        console.error('Erro de login:', errorMsg);
+        setError(errorMsg);
       }
-    } catch (err) { setError("Erro de conexão."); } 
+    } catch (err) {
+      console.error('Erro de conexão:', err);
+      setError("Erro de conexão.");
+    }
     finally { setLoading(false); }
   };
 
